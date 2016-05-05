@@ -68,6 +68,11 @@ static AVCaptureVideoOrientation Angle2AVCaptureVideoOrientation(int deviceOrien
 	char fps_context[64];
 	const char *deviceId;
 	MSYuvBufAllocator* bufAllocator;
+    CIImage *inputImage;
+    CIImage *outputImage;
+    CIImage *maskImage;
+    UIImage *img;
+    CIFilter *filter;
 };
 
 - (void)initIOSCapture;
@@ -172,7 +177,54 @@ static void capture_queue_cleanup(void* p) {
 				frame=nil;
 				return;
 			}
+            
+            CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+            NSDictionary *options = [NSDictionary dictionaryWithObject:(__bridge id)colorSpace forKey:kCIImageColorSpace];
+            UIFont *font = [UIFont fontWithName:@"Helvetica" size:12];
+            NSDictionary *attributes = @{NSFontAttributeName: font,
+                                         NSForegroundColorAttributeName: [UIColor lightTextColor]};
+            NSString *string = @"704-776-6551";
+            
+            
+            CVPixelBufferLockBaseAddress( frame, 0 );
+            
+            EAGLContext *eaglContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+            CIContext *ciContext = [CIContext contextWithEAGLContext:eaglContext options:options];
+            
+            inputImage = [CIImage imageWithCVPixelBuffer:frame options:options];
+            
+            UIGraphicsBeginImageContextWithOptions([inputImage extent].size, NO, 1.0f);
+            
+            [string drawAtPoint:CGPointMake(100, 100)
+                       withAttributes:attributes];
+            img = UIGraphicsGetImageFromCurrentImageContext();
+            UIGraphicsEndImageContext();
+            maskImage = [CIImage imageWithCGImage:img.CGImage];
 
+            filter = [CIFilter filterWithName:@"CISourceOverCompositing"];
+            [filter setValue:maskImage forKey:kCIInputImageKey];
+            [filter setValue:inputImage forKey:kCIInputBackgroundImageKey];
+            outputImage = [filter outputImage];
+
+            CVPixelBufferUnlockBaseAddress(frame, 0);
+            
+            [ciContext render:outputImage toCVPixelBuffer:frame bounds:[inputImage extent] colorSpace:colorSpace];
+            CGColorSpaceRelease(colorSpace);
+            
+            //SEPHIA
+            //  EAGLContext *myEAGLContext = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+          //  NSDictionary *options = @{ kCIContextWorkingColorSpace : [NSNull null] };
+            //CIContext *context = [CIContext contextWithEAGLContext:myEAGLContext options:options];
+            //CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+            
+//            CIImage *image = [CIImage imageWithCVPixelBuffer:frame];
+//            CIFilter *filter = [CIFilter filterWithName:@"CISepiaTone"];           // 3
+//            [filter setValue:image forKey:kCIInputImageKey];
+//            [filter setValue:@0.8f forKey:kCIInputIntensityKey];
+//            CIImage *result = [filter valueForKey:kCIOutputImageKey];              // 4
+//
+//            [context render:result toCVPixelBuffer:frame];
+//END SEPHIA
 			/*kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange*/
 			size_t plane_width = CVPixelBufferGetWidthOfPlane(frame, 0);
 			size_t plane_height = CVPixelBufferGetHeightOfPlane(frame, 0);
