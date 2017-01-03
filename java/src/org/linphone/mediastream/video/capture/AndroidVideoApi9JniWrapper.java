@@ -18,16 +18,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.mediastream.video.capture;
 
-import java.util.List;
-
-import org.linphone.mediastream.Log;
-
 import android.annotation.TargetApi;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
 import android.os.Build;
+
+import org.linphone.CameraPreview;
+import org.linphone.LinphoneManager;
+import org.linphone.mediastream.Log;
+
+import java.util.List;
  
 @TargetApi(Build.VERSION_CODES.GINGERBREAD)
 public class AndroidVideoApi9JniWrapper {
@@ -60,6 +62,10 @@ public class AndroidVideoApi9JniWrapper {
 		params.setPreviewSize(width, height); 
 		int[] chosenFps = findClosestEnclosingFpsRange(fps*1000, params.getSupportedPreviewFpsRange());
 		params.setPreviewFpsRange(chosenFps[0], chosenFps[1]);
+		boolean isFlashEnabled = LinphoneManager.getLc().getConfig().getBool("misc", "flash_in_call", true);
+		if(isFlashEnabled && cameraId != CameraPreview.findFrontFacingCamera()){
+			params.setFlashMode(Parameters.FLASH_MODE_TORCH);
+		}
 		camera.setParameters(params);
 
 		int bufferSize = (width * height * ImageFormat.getBitsPerPixel(params.getPreviewFormat())) / 8;
